@@ -23,11 +23,11 @@ export async function initDb(): Promise<void> {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id UUID PRIMARY KEY,
+      id UUID NOT NULL,
       document_name TEXT NOT NULL,
       online BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMPTZ DEFAULT NOW(),
-      UNIQUE(id, document_name)
+      PRIMARY KEY(id, document_name)
     )
   `);
 
