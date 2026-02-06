@@ -1,5 +1,7 @@
 import WebSocket, { WebSocketServer } from "ws";
 import http from "http";
+import * as Y from "yjs";
+import { fetchDocument } from "./db.js";
 
 const clients = new Set<WebSocket>();
 let timerInterval: NodeJS.Timeout | null = null;
@@ -14,12 +16,60 @@ function broadcast(message: string): void {
   }
 }
 
-const httpServer = http.createServer((req, res) => {
-  if (req.url === "/timer") {
+function toPlain(value: unknown): unknown {
+  if (value instanceof Y.Map) {
+    const obj: Record<string, unknown> = {};
+    for (const [k, v] of value.entries()) {
+      obj[k] = toPlain(v);
+    }
+    return obj;
+  }
+  if (value instanceof Y.Array) {
+    return value.toArray().map(toPlain);
+  }
+  return value;
+}
+
+const httpServer = http.createServer(async (req, res) => {
+  const url = new URL(req.url ?? "", "http://localhost");
+
+  if (url.pathname === "/timer") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", clients: clients.size }));
     return;
   }
+
+  if (url.pathname === "/summarize") {
+    const documentName = url.searchParams.get("document");
+    if (!documentName) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "document query parameter is required" }));
+      return;
+    }
+
+    const state = await fetchDocument(documentName);
+    if (!state) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "document not found" }));
+      return;
+    }
+
+    const doc = new Y.Doc();
+    Y.applyUpdate(doc, state);
+    const objects = doc.getArray("objects");
+
+    const result = [];
+    for (let i = 0; i < objects.length; i++) {
+      result.push(toPlain(objects.get(i)));
+    }
+
+    console.log(`Document "${documentName}" objects:`, JSON.stringify(result, null, 2));
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(result, null, 2));
+    return;
+  }
+
   res.writeHead(404);
   res.end();
 });
