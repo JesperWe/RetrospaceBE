@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "while true; do node dist/index.js; echo 'Server crashed, restarting in 5s...'; sleep 5; done"
   },
   "keywords": [],
   "author": "",
