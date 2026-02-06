@@ -147,16 +147,35 @@ const httpServer = http.createServer(async (req, res) => {
 
     let parsed: any;
     try {
-      const cleaned = resultContent
-        .split("\n")
-        .filter((line: string) => !line.includes("```"))
-        .join("\n");
-      parsed = JSON.parse(cleaned);
-    } catch (err) {
-      console.warn("Failed to parse JSON from LLM response:", resultContent);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ raw: resultContent }));
-      return;
+      // Try parsing the whole response as JSON first
+      parsed = JSON.parse(resultContent);
+    } catch {
+      // Extract the first JSON code fence if present
+      const fenceMatch = resultContent.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+      if (fenceMatch) {
+        try {
+          parsed = JSON.parse(fenceMatch[1]);
+        } catch {
+          // fall through
+        }
+      }
+      // Try finding the first { ... } or [ ... ] in the response
+      if (!parsed) {
+        const jsonMatch = resultContent.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+        if (jsonMatch) {
+          try {
+            parsed = JSON.parse(jsonMatch[1]);
+          } catch {
+            // fall through
+          }
+        }
+      }
+      if (!parsed) {
+        console.warn("Failed to parse JSON from LLM response:", resultContent);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ raw: resultContent }));
+        return;
+      }
     }
 
     console.log(
