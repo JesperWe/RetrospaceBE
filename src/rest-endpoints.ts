@@ -1,8 +1,7 @@
 import WebSocket, { WebSocketServer } from "ws";
 import http from "http";
 import * as Y from "yjs";
-import { fetchDocument, storeDocument } from "./db.js";
-import { encodeStateAsUpdate } from "yjs";
+import type { Server as HpServer } from "@hocuspocus/server";
 
 type OpenRouterChoice = {
   logprobs: any;
@@ -30,6 +29,8 @@ type OpenRouterResponse = {
     total_tokens: number;
   };
 };
+
+let hpServer: HpServer | null = null;
 
 const clients = new Set<WebSocket>();
 let timerInterval: NodeJS.Timeout | null = null;
@@ -77,15 +78,14 @@ const httpServer = http.createServer(async (req, res) => {
       return;
     }
 
-    const state = await fetchDocument(documentName);
-    if (!state) {
+    // Get the live Hocuspocus document so changes propagate to clients
+    const doc = hpServer!.hocuspocus.documents.get(documentName);
+    if (!doc) {
       res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "document not found" }));
+      res.end(JSON.stringify({ error: "document not found or not loaded" }));
       return;
     }
 
-    const doc = new Y.Doc();
-    Y.applyUpdate(doc, state);
     const objects = doc.getArray("objects");
 
     const result = [];
@@ -227,10 +227,7 @@ const httpServer = http.createServer(async (req, res) => {
       }
     });
 
-    // Persist updated state
-    const updatedState = encodeStateAsUpdate(doc);
-    await storeDocument(documentName, updatedState);
-    console.log(`Repositioned and stored document "${documentName}" (${updatedState.byteLength} bytes)`);
+    console.log(`Repositioned objects in "${documentName}"`);
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ groups, repositioned: true }, null, 2));
@@ -283,7 +280,8 @@ wss.on("connection", (ws) => {
   });
 });
 
-export function startTimerServer(port: number): void {
+export function startTimerServer(port: number, server: HpServer): void {
+  hpServer = server;
   httpServer.listen(port, () => {
     console.log(`Timer server listening on port ${port}`);
   });

@@ -86,4 +86,4 @@ const server = new Server({
 });
 
 server.listen();
-startTimerServer(8082);
+startTimerServer(8082, server);
