@@ -3,6 +3,33 @@ import http from "http";
 import * as Y from "yjs";
 import { fetchDocument } from "./db.js";
 
+type OpenRouterChoice = {
+  logprobs: any;
+  finish_reason: string;
+  native_finish_reason: string;
+  index: number;
+  message: {
+    role: string;
+    content: string;
+    refusal: any;
+    reasoning: any;
+  };
+};
+
+type OpenRouterResponse = {
+  id: string;
+  provider: string;
+  model: string;
+  object: string;
+  created: number;
+  choices: Array<OpenRouterChoice>;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+};
+
 const clients = new Set<WebSocket>();
 let timerInterval: NodeJS.Timeout | null = null;
 let timerStart = 0;
@@ -100,14 +127,42 @@ const httpServer = http.createServer(async (req, res) => {
       },
     );
 
-    const orData = await orResponse.json();
+    if (!orResponse.ok) {
+      throw new Error(
+        `OpenRouter failed with status ${orResponse.status}: ${orResponse.statusText}`,
+      );
+    }
+
+    const response = (await orResponse.json()) as OpenRouterResponse;
+    const resultContent = response?.choices?.[0]?.message?.content;
+
+    if (!resultContent) {
+      throw new Error("No result found in LLM response");
+    }
+
+    let parsed: any;
+    try {
+      // Remove any lines containing triple backticks before parsing
+      const cleaned = resultContent
+        .split("\n")
+        .filter((line) => !line.includes("```"))
+        .join("\n");
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      console.warn(
+        "[SEO] Failed to parse JSON from LLM, returning empty result",
+      );
+      console.warn(resultContent);
+      return { title: undefined, description: undefined };
+    }
+
     console.log(
       `OpenRouter response for "${documentName}":`,
-      JSON.stringify(orData, null, 2),
+      JSON.stringify(parsed, null, 2),
     );
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(orData, null, 2));
+    res.end(JSON.stringify(parsed, null, 2));
     return;
   }
 
