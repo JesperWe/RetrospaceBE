@@ -59,17 +59,18 @@ const server = new Server({
       if (!documentName) {
         response.writeHead(400, { "Content-Type": "application/json" });
         response.end(JSON.stringify({ error: "documentName query parameter is required" }));
-        return;
+        throw null;
       }
 
       const users = await fetchUsers(documentName);
       response.writeHead(200, { "Content-Type": "application/json" });
       response.end(JSON.stringify(users));
-      return;
+      throw null;
     }
 
     response.writeHead(404, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ error: "Not found" }));
+    throw null;
   },
 
   async onDestroy() {
