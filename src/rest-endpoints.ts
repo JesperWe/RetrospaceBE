@@ -132,7 +132,12 @@ const httpServer = http.createServer(async (req, res) => {
       const body = await orResponse.text();
       console.error(`OpenRouter failed (${orResponse.status}):`, body);
       res.writeHead(502, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "OpenRouter request failed", status: orResponse.status }));
+      res.end(
+        JSON.stringify({
+          error: "OpenRouter request failed",
+          status: orResponse.status,
+        }),
+      );
       return;
     }
 
@@ -140,7 +145,10 @@ const httpServer = http.createServer(async (req, res) => {
     const resultContent = orJson?.choices?.[0]?.message?.content;
 
     if (!resultContent) {
-      console.error("No content in OpenRouter response:", JSON.stringify(orJson, null, 2));
+      console.error(
+        "No content in OpenRouter response:",
+        JSON.stringify(orJson, null, 2),
+      );
       res.writeHead(502, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "No result found in LLM response" }));
       return;
@@ -152,7 +160,9 @@ const httpServer = http.createServer(async (req, res) => {
       parsed = JSON.parse(resultContent);
     } catch {
       // Extract the first JSON code fence if present
-      const fenceMatch = resultContent.match(/```(?:json)?\s*\n([\s\S]*?)\n```/);
+      const fenceMatch = resultContent.match(
+        /```(?:json)?\s*\n([\s\S]*?)\n```/,
+      );
       if (fenceMatch) {
         try {
           parsed = JSON.parse(fenceMatch[1]);
@@ -221,9 +231,9 @@ const httpServer = http.createServer(async (req, res) => {
             obj.set("position", new Y.Map(Object.entries({ x, y, z })));
           }
 
-          x += 3;
+          x += 1.2;
         }
-        y += 3;
+        y += 1.2;
       }
     });
 
