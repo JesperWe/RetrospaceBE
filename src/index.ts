@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { Server } from "@hocuspocus/server";
 import { encodeStateAsUpdate, applyUpdate } from "yjs";
 import {
@@ -9,7 +10,7 @@ import {
   fetchUsers,
   closeDb,
 } from "./db.js";
-import { startTimerServer } from "./timer.js";
+import { startTimerServer } from "./rest-endpoints.js";
 
 await initDb();
 
@@ -49,7 +50,9 @@ const server = new Server({
   async onStoreDocument({ document, documentName }) {
     const state = encodeStateAsUpdate(document);
     await storeDocument(documentName, state);
-    console.log(`Stored document "${documentName}" (${state.byteLength} bytes)`);
+    console.log(
+      `Stored document "${documentName}" (${state.byteLength} bytes)`,
+    );
   },
 
   async onRequest({ request, response }) {
@@ -59,7 +62,9 @@ const server = new Server({
       const documentName = url.searchParams.get("documentName");
       if (!documentName) {
         response.writeHead(400, { "Content-Type": "application/json" });
-        response.end(JSON.stringify({ error: "documentName query parameter is required" }));
+        response.end(
+          JSON.stringify({ error: "documentName query parameter is required" }),
+        );
         throw null;
       }
 

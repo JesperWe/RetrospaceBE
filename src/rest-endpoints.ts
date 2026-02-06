@@ -43,7 +43,9 @@ const httpServer = http.createServer(async (req, res) => {
     const documentName = url.searchParams.get("document");
     if (!documentName) {
       res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "document query parameter is required" }));
+      res.end(
+        JSON.stringify({ error: "document query parameter is required" }),
+      );
       return;
     }
 
@@ -63,10 +65,49 @@ const httpServer = http.createServer(async (req, res) => {
       result.push(toPlain(objects.get(i)));
     }
 
-    console.log(`Document "${documentName}" objects:`, JSON.stringify(result, null, 2));
+    console.log(
+      `Document "${documentName}" objects:`,
+      JSON.stringify(result, null, 2),
+    );
+
+    const idTextMap = result.map((obj: any) => ({
+      id: obj.id,
+      text: obj.text,
+    }));
+
+    const orResponse = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.OPENROUTER_API_ACCESS_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content:
+                "here is an array of json objects. look at the text in each item and group them together in groups with similar text content. output a js object with an array of arrays (the groups) of object ids",
+            },
+            {
+              role: "user",
+              content: JSON.stringify(idTextMap),
+            },
+          ],
+        }),
+      },
+    );
+
+    const orData = await orResponse.json();
+    console.log(
+      `OpenRouter response for "${documentName}":`,
+      JSON.stringify(orData, null, 2),
+    );
 
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(result, null, 2));
+    res.end(JSON.stringify(orData, null, 2));
     return;
   }
 
