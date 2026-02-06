@@ -4,6 +4,15 @@ import http from "http";
 const clients = new Set<WebSocket>();
 let timerInterval: NodeJS.Timeout | null = null;
 let timerStart = 0;
+let timerDuration = 0;
+
+function broadcast(message: string): void {
+  for (const client of clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  }
+}
 
 const httpServer = http.createServer((req, res) => {
   if (req.url === "/timer") {
@@ -23,16 +32,22 @@ wss.on("connection", (ws) => {
   ws.on("message", (data) => {
     const msg = data.toString();
 
-    if (msg === "start") {
+    if (msg.startsWith("start ")) {
+      const duration = parseInt(msg.split(" ")[1], 10);
+      if (isNaN(duration) || duration <= 0) return;
+
       if (timerInterval) clearInterval(timerInterval);
+      timerDuration = duration;
       timerStart = Date.now();
       timerInterval = setInterval(() => {
         const elapsed = Date.now() - timerStart;
-        const message = JSON.stringify({ type: "timer", value: elapsed });
-        for (const client of clients) {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
-          }
+        const remaining = timerDuration - elapsed;
+        if (remaining <= 0) {
+          clearInterval(timerInterval!);
+          timerInterval = null;
+          broadcast(JSON.stringify({ type: "done" }));
+        } else {
+          broadcast(JSON.stringify({ type: "timer", value: remaining }));
         }
       }, 100);
     }
@@ -42,12 +57,7 @@ wss.on("connection", (ws) => {
         clearInterval(timerInterval);
         timerInterval = null;
       }
-      const message = JSON.stringify({ type: "stop" });
-      for (const client of clients) {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(message);
-        }
-      }
+      broadcast(JSON.stringify({ type: "stop" }));
     }
   });
 
