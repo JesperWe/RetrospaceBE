@@ -21,7 +21,17 @@ export async function initDb(): Promise<void> {
     )
   `);
 
-  console.log("Database initialized, documents table ready");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id UUID PRIMARY KEY,
+      document_name TEXT NOT NULL REFERENCES documents(name) ON DELETE CASCADE,
+      online BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(id, document_name)
+    )
+  `);
+
+  console.log("Database initialized, documents and users tables ready");
 }
 
 export async function fetchDocument(name: string): Promise<Uint8Array | null> {
@@ -48,6 +58,40 @@ export async function storeDocument(
      DO UPDATE SET state = EXCLUDED.state, updated_at = NOW()`,
     [name, Buffer.from(state)],
   );
+}
+
+export async function setUserOnline(
+  userId: string,
+  documentName: string,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO users (id, document_name, online, updated_at)
+     VALUES ($1, $2, TRUE, NOW())
+     ON CONFLICT (id, document_name)
+     DO UPDATE SET online = TRUE, updated_at = NOW()`,
+    [userId, documentName],
+  );
+}
+
+export async function setUserOffline(
+  userId: string,
+  documentName: string,
+): Promise<void> {
+  await pool.query(
+    `UPDATE users SET online = FALSE, updated_at = NOW()
+     WHERE id = $1 AND document_name = $2`,
+    [userId, documentName],
+  );
+}
+
+export async function fetchUsers(
+  documentName: string,
+): Promise<{ id: string; online: boolean }[]> {
+  const result = await pool.query(
+    "SELECT id, online FROM users WHERE document_name = $1",
+    [documentName],
+  );
+  return result.rows;
 }
 
 export async function closeDb(): Promise<void> {
