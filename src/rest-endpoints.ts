@@ -128,32 +128,35 @@ const httpServer = http.createServer(async (req, res) => {
     );
 
     if (!orResponse.ok) {
-      throw new Error(
-        `OpenRouter failed with status ${orResponse.status}: ${orResponse.statusText}`,
-      );
+      const body = await orResponse.text();
+      console.error(`OpenRouter failed (${orResponse.status}):`, body);
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "OpenRouter request failed", status: orResponse.status }));
+      return;
     }
 
-    const response = (await orResponse.json()) as OpenRouterResponse;
-    const resultContent = response?.choices?.[0]?.message?.content;
+    const orJson = (await orResponse.json()) as OpenRouterResponse;
+    const resultContent = orJson?.choices?.[0]?.message?.content;
 
     if (!resultContent) {
-      throw new Error("No result found in LLM response");
+      console.error("No content in OpenRouter response:", JSON.stringify(orJson, null, 2));
+      res.writeHead(502, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "No result found in LLM response" }));
+      return;
     }
 
     let parsed: any;
     try {
-      // Remove any lines containing triple backticks before parsing
       const cleaned = resultContent
         .split("\n")
-        .filter((line) => !line.includes("```"))
+        .filter((line: string) => !line.includes("```"))
         .join("\n");
       parsed = JSON.parse(cleaned);
     } catch (err) {
-      console.warn(
-        "[SEO] Failed to parse JSON from LLM, returning empty result",
-      );
-      console.warn(resultContent);
-      return { title: undefined, description: undefined };
+      console.warn("Failed to parse JSON from LLM response:", resultContent);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ raw: resultContent }));
+      return;
     }
 
     console.log(
