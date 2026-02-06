@@ -213,7 +213,7 @@ const httpServer = http.createServer(async (req, res) => {
     // Reposition items by group
     doc.transact(() => {
       let x = 0;
-      let y = 0;
+      let y = 1;
       const z = 0;
 
       for (const group of groups) {
