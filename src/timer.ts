@@ -49,7 +49,7 @@ wss.on("connection", (ws) => {
         } else {
           broadcast(JSON.stringify({ type: "timer", value: remaining }));
         }
-      }, 100);
+      }, 1000);
     }
 
     if (msg === "stop") {
