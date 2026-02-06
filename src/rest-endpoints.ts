@@ -1,7 +1,8 @@
 import WebSocket, { WebSocketServer } from "ws";
 import http from "http";
 import * as Y from "yjs";
-import { fetchDocument } from "./db.js";
+import { fetchDocument, storeDocument } from "./db.js";
+import { encodeStateAsUpdate } from "yjs";
 
 type OpenRouterChoice = {
   logprobs: any;
@@ -183,8 +184,56 @@ const httpServer = http.createServer(async (req, res) => {
       JSON.stringify(parsed, null, 2),
     );
 
+    // Extract groups array — handle both { groups: [[...]] } and [[...]] formats
+    const groups: string[][] = Array.isArray(parsed) ? parsed : parsed.groups;
+    if (!Array.isArray(groups)) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(parsed, null, 2));
+      return;
+    }
+
+    // Build id → Y.Map lookup
+    const objById = new Map<string, Y.Map<unknown>>();
+    for (let i = 0; i < objects.length; i++) {
+      const obj = objects.get(i) as Y.Map<unknown>;
+      const id = obj.get("id") as string;
+      if (id) objById.set(id, obj);
+    }
+
+    // Reposition items by group
+    doc.transact(() => {
+      let x = 0;
+      let y = 0;
+      const z = 0;
+
+      for (const group of groups) {
+        x = 0;
+        for (const id of group) {
+          const obj = objById.get(id);
+          if (!obj) continue;
+
+          const pos = obj.get("position");
+          if (pos instanceof Y.Map) {
+            pos.set("x", x);
+            pos.set("y", y);
+            pos.set("z", z);
+          } else {
+            obj.set("position", new Y.Map(Object.entries({ x, y, z })));
+          }
+
+          x += 3;
+        }
+        y += 3;
+      }
+    });
+
+    // Persist updated state
+    const updatedState = encodeStateAsUpdate(doc);
+    await storeDocument(documentName, updatedState);
+    console.log(`Repositioned and stored document "${documentName}" (${updatedState.byteLength} bytes)`);
+
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(parsed, null, 2));
+    res.end(JSON.stringify({ groups, repositioned: true }, null, 2));
     return;
   }
 
