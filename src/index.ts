@@ -9,6 +9,7 @@ import {
   fetchUsers,
   closeDb,
 } from "./db.js";
+import { startTimerServer } from "./timer.js";
 
 await initDb();
 
@@ -80,3 +81,4 @@ const server = new Server({
 });
 
 server.listen();
+startTimerServer(8082);
