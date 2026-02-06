@@ -5,7 +5,12 @@ const clients = new Set<WebSocket>();
 let timerInterval: NodeJS.Timeout | null = null;
 let timerStart = 0;
 
-const httpServer = http.createServer((_req, res) => {
+const httpServer = http.createServer((req, res) => {
+  if (req.url === "/timer") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok", clients: clients.size }));
+    return;
+  }
   res.writeHead(404);
   res.end();
 });
