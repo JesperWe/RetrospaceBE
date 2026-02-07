@@ -2,6 +2,7 @@ import WebSocket, { WebSocketServer } from "ws";
 import http from "http";
 import * as Y from "yjs";
 import type { Server as HpServer } from "@hocuspocus/server";
+import { incrementVote } from "./db.js";
 
 type OpenRouterChoice = {
   logprobs: any;
@@ -244,6 +245,27 @@ const httpServer = http.createServer(async (req, res) => {
 
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ groups, repositioned: true }, null, 2));
+    return;
+  }
+
+  if (url.pathname === "/vote") {
+    const documentName = url.searchParams.get("document");
+    const userId = url.searchParams.get("user");
+    if (!documentName || !userId) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "document and user query parameters are required" }));
+      return;
+    }
+
+    const count = await incrementVote(documentName, userId);
+
+    if (count < 3) {
+      res.writeHead(202, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ count }));
+    } else {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ count }));
+    }
     return;
   }
 

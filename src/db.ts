@@ -31,7 +31,16 @@ export async function initDb(): Promise<void> {
     )
   `);
 
-  console.log("Database initialized, documents and users tables ready");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS votes (
+      document_name TEXT NOT NULL,
+      user_id UUID NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(document_name, user_id)
+    )
+  `);
+
+  console.log("Database initialized, documents, users, and votes tables ready");
 }
 
 export async function fetchDocument(name: string): Promise<Uint8Array | null> {
@@ -92,6 +101,21 @@ export async function fetchUsers(
     [documentName],
   );
   return result.rows;
+}
+
+export async function incrementVote(
+  documentName: string,
+  userId: string,
+): Promise<number> {
+  const result = await pool.query(
+    `INSERT INTO votes (document_name, user_id, count)
+     VALUES ($1, $2, 1)
+     ON CONFLICT (document_name, user_id)
+     DO UPDATE SET count = votes.count + 1
+     RETURNING count`,
+    [documentName, userId],
+  );
+  return result.rows[0].count;
 }
 
 export async function closeDb(): Promise<void> {
