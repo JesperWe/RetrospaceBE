@@ -60,13 +60,37 @@ function toPlain(value: unknown): unknown {
   return value;
 }
 
+const corsHeaders: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 const httpServer = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? "", "http://localhost");
+
+  if (
+    (url.pathname === "/summarize" || url.pathname === "/vote") &&
+    req.method === "OPTIONS"
+  ) {
+    res.writeHead(204, {
+      ...corsHeaders,
+      "Content-Length": "0",
+    });
+    res.end();
+    return;
+  }
 
   if (url.pathname === "/timer") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", clients: clients.size }));
     return;
+  }
+
+  if (url.pathname === "/summarize" || url.pathname === "/vote") {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   }
 
   if (url.pathname === "/summarize") {
