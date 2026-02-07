@@ -158,10 +158,14 @@ const httpServer = http.createServer(async (req, res) => {
       return;
     }
 
+    // Strip single-line // comments that LLMs sometimes add to JSON
+    const stripComments = (s: string) =>
+      s.replace(/\/\/[^\n]*/g, "");
+
     let parsed: any;
     try {
       // Try parsing the whole response as JSON first
-      parsed = JSON.parse(resultContent);
+      parsed = JSON.parse(stripComments(resultContent));
     } catch {
       // Extract the first JSON code fence if present
       const fenceMatch = resultContent.match(
@@ -169,7 +173,7 @@ const httpServer = http.createServer(async (req, res) => {
       );
       if (fenceMatch) {
         try {
-          parsed = JSON.parse(fenceMatch[1]);
+          parsed = JSON.parse(stripComments(fenceMatch[1]));
         } catch {
           // fall through
         }
@@ -179,7 +183,7 @@ const httpServer = http.createServer(async (req, res) => {
         const jsonMatch = resultContent.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
         if (jsonMatch) {
           try {
-            parsed = JSON.parse(jsonMatch[1]);
+            parsed = JSON.parse(stripComments(jsonMatch[1]));
           } catch {
             // fall through
           }
