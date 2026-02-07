@@ -90,7 +90,10 @@ const httpServer = http.createServer(async (req, res) => {
 
     const result = [];
     for (let i = 0; i < objects.length; i++) {
-      result.push(toPlain(objects.get(i)));
+      const obj = objects.get(i) as Y.Map<unknown>;
+      if (obj.get("type") === "postit") {
+        result.push(toPlain(obj));
+      }
     }
 
     console.log(
